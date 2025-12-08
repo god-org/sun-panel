@@ -1,0 +1,46 @@
+name: Check
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+env:
+  SRC_IMAGE: hslr/sun-panel:latest
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TZ: Asia/Shanghai
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Commit Digest
+        id: getDigest
+        run: |
+          DIGEST=$(docker manifest inspect ${{ env.SRC_IMAGE }} | jq -r '.manifests[0].digest')
+          echo "commitDigest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Compare Commit Digest
+        id: cacheDigest
+        uses: actions/cache@main
+        with:
+          path: .commitDigest
+          key: commitDigest_${{ steps.getDigest.outputs.commitDigest }}
+
+      - name: Save New Commit Digest
+        if: ${{ steps.cacheDigest.outputs.cache-hit != 'true' }}
+        run: |
+          echo ${{ steps.getDigest.outputs.commitDigest }} | tee .commitDigest
+
+      - name: Invoke workflow without inputs
+        if: ${{ steps.cacheDigest.outputs.cache-hit != 'true' }}
+        uses: benc-uk/workflow-dispatch@master
+        with:
+          workflow: Build
+
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          retain_days: 0
+          keep_minimum_runs: 1

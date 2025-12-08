@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@master
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@master
+        with:
+          push: true
+          platforms: linux/amd64, linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+
+      - name: ghcr.io cleanup action
+        uses: dataaxiom/ghcr-cleanup-action@main
+        with:
+          keep-n-untagged: 0
+          keep-n-tagged: 1
